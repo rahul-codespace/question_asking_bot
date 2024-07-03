@@ -14,7 +14,7 @@ load_dotenv()
 
 class SaturnAgentConversationChain(LLMChain):
     @classmethod
-    def from_llm(cls, llm: BaseLLM, verbose: bool = True):
+    def from_llm(cls, llm: BaseLLM, verbose: bool = False):
         """Get the response parser"""
         saturn_agent_inception_prompt = """Never forget your name is {agent_name}.
         You work as a {agent_role}. You work at {company_name}.
@@ -53,7 +53,7 @@ class SaturnAgentConversationChain(LLMChain):
         )
         return cls(prompt=prompt, llm=llm, verbose=verbose)
 
-verbose = True
+verbose = False
 llm = ChatOpenAI(model="gpt-4o", temperature=0.9)
 
 saturn_agent_utterance_chain = SaturnAgentConversationChain.from_llm(llm=llm, verbose=verbose)
@@ -108,6 +108,9 @@ class SaturnGPT(Chain):
         self.question_responses[self.current_question_no] = self.conversation_history[-1].split(":")[-1].strip().replace("<END_OF_TURN>", "")
 
         self.conversation_history.append(f"{config['agent_name']}: {ai_message}")
+        # print current question no
+        print(f"Current Question No {self.current_question_no}: {questions_dic.get(self.current_question_no, '1')}")
+        print("****************************************************************************************************")
         print(f"{config['agent_name']}: {ai_message.rstrip('<END_OF_TURN>')}")
 
     @classmethod
@@ -125,6 +128,7 @@ sales_agent.seed_agent()
 while True:
     sales_agent.step()
     user_input = input("User: ")
+    print("\n\n")
     if user_input.lower() == "exit":
         sales_agent.print_question_responses()
         break
