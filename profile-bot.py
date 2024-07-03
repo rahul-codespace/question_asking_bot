@@ -1,14 +1,14 @@
 from dotenv import load_dotenv
 from langchain.chains import LLMChain
-from langchain_core.prompts import PromptTemplate
+from langchain.prompts import PromptTemplate
 from langchain.llms import BaseLLM
 from pydantic import Field
 from langchain.chains.base import Chain
 from langchain_openai import ChatOpenAI
 from typing import Dict, List, Any
-from questions import questions_dic
+from questions import questions_dic, evaluation_criteria_dic
 from role_config import config
-
+from question_verifier import QuestionVerifier
 # Load environment variables from .env
 load_dotenv()
 
@@ -16,7 +16,8 @@ class SaturnAgentConversationChain(LLMChain):
     @classmethod
     def from_llm(cls, llm: BaseLLM, verbose: bool = False):
         """Get the response parser"""
-        saturn_agent_inception_prompt = """Never forget your name is {agent_name}.
+        saturn_agent_inception_prompt = """
+        Never forget your name is {agent_name}.
         You work as a {agent_role}. You work at {company_name}.
         {company_name}'s business is the following: {company_business}.
         Your company values are {company_values}.
@@ -56,8 +57,6 @@ class SaturnAgentConversationChain(LLMChain):
 verbose = False
 llm = ChatOpenAI(model="gpt-4o", temperature=0.9)
 
-saturn_agent_utterance_chain = SaturnAgentConversationChain.from_llm(llm=llm, verbose=verbose)
-
 class SaturnGPT(Chain):
     conversation_history: List[str] = []
     current_question_no: str = "1"
@@ -70,6 +69,9 @@ class SaturnGPT(Chain):
     def seed_agent(self):
         self.current_question_no = "1"
         self.conversation_history = config["conversation_history"]
+
+    def get_current_question_no(self):
+        return self.current_question_no
 
     def determine_next_question_no(self):
         self.current_question_no = str(int(self.current_question_no) + 1)
@@ -95,23 +97,24 @@ class SaturnGPT(Chain):
     def _call(self, inputs: Dict[str, Any]) -> None:
         next_question = self.retrieve_question(self.current_question_no)
         ai_message = self.saturn_agent_conversation_chain.run(
-            agent_name= config["agent_name"],
-            agent_role= config["agent_role"],
-            company_name= config["company_name"],
-            company_business= config["company_business"],
-            company_values= config["company_values"],
+            agent_name=config["agent_name"],
+            agent_role=config["agent_role"],
+            company_name=config["company_name"],
+            company_business=config["company_business"],
+            company_values=config["company_values"],
             conversation_history="\n".join(self.conversation_history),
-            conversation_type= config["conversation_type"],
+            conversation_type=config["conversation_type"],
             next_question=next_question,
         )
+
         # Store the question response
         self.question_responses[self.current_question_no] = self.conversation_history[-1].split(":")[-1].strip().replace("<END_OF_TURN>", "")
 
         self.conversation_history.append(f"{config['agent_name']}: {ai_message}")
-        # print current question no
+
         print(f"Current Question No {self.current_question_no}: {questions_dic.get(self.current_question_no, '1')}")
         print("****************************************************************************************************")
-        print(f"{config['agent_name']}: {ai_message.rstrip('<END_OF_TURN>')}")
+        print(f"{config['agent_name']}: {ai_message.split(':', 1)[-1].strip().rstrip('<END_OF_TURN>')}")
 
     @classmethod
     def from_llm(cls, llm: BaseLLM, verbose: bool = False, **kwargs) -> "SaturnGPT":
@@ -123,6 +126,8 @@ sales_agent = SaturnGPT.from_llm(llm=llm, verbose=verbose)
 
 # Seed the agent with initial conversation history
 sales_agent.seed_agent()
+#  Initialize the QuestionVerifier
+question_verifier = QuestionVerifier()
 
 # Start the interaction loop
 while True:
@@ -132,5 +137,14 @@ while True:
     if user_input.lower() == "exit":
         sales_agent.print_question_responses()
         break
+    while True:
+        evaluation_criteria = evaluation_criteria_dic.get(sales_agent.get_current_question_no(), "1")
+        question = questions_dic.get(sales_agent.get_current_question_no(), "1")
+        if question_verifier.verify_question(question, user_input, evaluation_criteria):
+            break
+        else:
+            print("Please provide a valid response.")
+            user_input = input("User: ")
+            print("\n\n")
     sales_agent.conversation_history.append(f"User: {user_input}<END_OF_TURN>")
     sales_agent.determine_next_question_no()
