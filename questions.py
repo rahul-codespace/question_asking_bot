@@ -15,14 +15,14 @@ questions_dic = {
 # Define QuestionVerifier dictionary that maps question numbers to evaluation criteria
 
 evaluation_criteria_dic = {
-    "1": "The user should respond with 'Yes' or 'No'.",
-    "2": "The company name should be a valid string with maximum length of 50 characters.",
-    "3": "The company location should be contained in a valid city, state format. For example, 'New York, NY'.",
-    "4": "The user should respond with 'Yes' or 'No'.",
-    "5": "The business description should be a valid string that describes the business in a few sentences. or minimum length of in one sentence.",
-    "6": "The primary industry should be a valid industry type or 'Unspecified'.",
-    "7": "The customer type should be 'Consumers', 'Businesses', or 'Government'.",
-    "8": "The business nature should be 'Manufacturing', 'Service', or 'Trade'.",
-    "9": "The number of employees should be a valid integer.",
-    "10": "The ERP system should be a valid system name of any ERP System."
+    "1": "User response should indicate readiness to proceed with answering questions about their company.",
+    "2": "User response should contain the name of the company without any special characters or numbers.",
+    "3": "User response should include the city and state where the company is located.",
+    "4": "User response should indicate whether they are the owner of the company.",
+    "5": "User response should provide a brief and accurate summary of their business.",
+    "6": "User response should clearly identify the primary industry of the company based on the description provided.",
+    "7": "User response should specify which type(s) of customers the company serves ('Consumers', 'Businesses', 'Government').",
+    "8": "User response should describe the nature of the business ('Manufacturing', 'Service', 'Trade (Retail/Wholesale/Distribution)').",
+    "9": "User response should state the number of employees currently on the company's payroll.",
+    "10": "User response should specify the current ERP system used by the company."
 }

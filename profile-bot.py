@@ -9,6 +9,7 @@ from typing import Dict, List, Any
 from questions import questions_dic, evaluation_criteria_dic
 from role_config import config
 from question_verifier import QuestionVerifier
+
 # Load environment variables from .env
 load_dotenv()
 
@@ -53,9 +54,6 @@ class SaturnAgentConversationChain(LLMChain):
             ],
         )
         return cls(prompt=prompt, llm=llm, verbose=verbose)
-
-verbose = False
-llm = ChatOpenAI(model="gpt-4o", temperature=0.9)
 
 class SaturnGPT(Chain):
     conversation_history: List[str] = []
@@ -114,20 +112,21 @@ class SaturnGPT(Chain):
 
         print(f"Current Question No {self.current_question_no}: {questions_dic.get(self.current_question_no, '1')}")
         print("****************************************************************************************************")
-        print(f"{config['agent_name']}: {ai_message.split(':', 1)[-1].strip().rstrip('<END_OF_TURN>')}")
+        print(ai_message.split(':', 1)[-1].strip().rstrip('<END_OF_TURN>'))
 
     @classmethod
     def from_llm(cls, llm: BaseLLM, verbose: bool = False, **kwargs) -> "SaturnGPT":
         saturn_agent_conversation_chain = SaturnAgentConversationChain.from_llm(llm, verbose=verbose)
         return cls(saturn_agent_conversation_chain=saturn_agent_conversation_chain, verbose=verbose, **kwargs)
 
-# Initialize your agent
+# Initialize your agent and verifier
+verbose = False
+llm = ChatOpenAI(model="gpt-4o", temperature=0.9)
 sales_agent = SaturnGPT.from_llm(llm=llm, verbose=verbose)
+question_verifier = QuestionVerifier()
 
 # Seed the agent with initial conversation history
 sales_agent.seed_agent()
-#  Initialize the QuestionVerifier
-question_verifier = QuestionVerifier()
 
 # Start the interaction loop
 while True:
@@ -140,11 +139,12 @@ while True:
     while True:
         evaluation_criteria = evaluation_criteria_dic.get(sales_agent.get_current_question_no(), "1")
         question = questions_dic.get(sales_agent.get_current_question_no(), "1")
-        if question_verifier.verify_question(question, user_input, evaluation_criteria):
+        is_valid_response = question_verifier.verify_question(question, user_input, evaluation_criteria)
+        if is_valid_response is True:
+            sales_agent.conversation_history.append(f"User: {user_input}<END_OF_TURN>")
+            sales_agent.determine_next_question_no()
             break
         else:
-            print("Please provide a valid response.")
+            print(is_valid_response)
             user_input = input("User: ")
             print("\n\n")
-    sales_agent.conversation_history.append(f"User: {user_input}<END_OF_TURN>")
-    sales_agent.determine_next_question_no()
