@@ -1,5 +1,6 @@
 # Define the questions dictionary
 questions_dic = {
+    "0": "User Name: Hello, this is Kedar Pandya from Saturn. May I have your name please?",
     "1": "Ask Permission: Welcome User! And say before we get started, I need to ask you a few questions about your company. Are you ready to proceed?",
     "2": "Company Name: Ask for the name of the company.",
     "3": "Company Location: Ask for the city and state where the company is located.",
@@ -15,6 +16,7 @@ questions_dic = {
 # Define QuestionVerifier dictionary that maps question numbers to evaluation criteria
 
 evaluation_criteria_dic = {
+    "0": "No need this will be handled by the system. Just return 'True'",
     "1": "User response should indicate readiness to proceed with answering questions about their company.",
     "2": "User response should contain the name of the company without any special characters or numbers.",
     "3": "User response should include the city and state where the company is located.",

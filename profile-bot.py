@@ -9,6 +9,11 @@ from typing import Dict, List, Any
 from questions import questions_dic, evaluation_criteria_dic
 from role_config import config
 from question_verifier import QuestionVerifier
+from pydantic import BaseModel
+from fastapi import FastAPI
+import uvicorn
+
+app = FastAPI()
 
 # Load environment variables from .env
 load_dotenv()
@@ -57,19 +62,22 @@ class SaturnAgentConversationChain(LLMChain):
 
 class SaturnGPT(Chain):
     conversation_history: List[str] = []
-    current_question_no: str = "1"
+    current_question_no: str = "0"
     saturn_agent_conversation_chain: SaturnAgentConversationChain = Field(...)
     question_responses: Dict[str, str] = {}
 
     def retrieve_question(self, question_no: str) -> str:
-        return questions_dic.get(question_no, "1")
+        return questions_dic.get(question_no)
 
-    def seed_agent(self):
+    def seed_agent(self, user_name: str):
         self.current_question_no = "1"
-        self.conversation_history = config["conversation_history"]
+        self.conversation_history = [
+            "Hello, this is Kedar Pandya from Saturn. May I have your name please?<END_OF_TURN>",
+            f"User: {user_name}<END_OF_TURN>",
+        ]
 
-    def get_current_question_no(self):
-        return self.current_question_no
+    def get_conversation_history(self):
+        return self.conversation_history
 
     def determine_next_question_no(self):
         self.current_question_no = str(int(self.current_question_no) + 1)
@@ -89,30 +97,50 @@ class SaturnGPT(Chain):
     def output_keys(self) -> List[str]:
         return []
 
-    def step(self):
-        self._call(inputs={})
+    def step(self, user_input: str)-> str:
+        return self._call(user_input)
 
-    def _call(self, inputs: Dict[str, Any]) -> None:
+    def generateQuestion(self):
         next_question = self.retrieve_question(self.current_question_no)
         ai_message = self.saturn_agent_conversation_chain.run(
-            agent_name=config["agent_name"],
-            agent_role=config["agent_role"],
-            company_name=config["company_name"],
-            company_business=config["company_business"],
-            company_values=config["company_values"],
-            conversation_history="\n".join(self.conversation_history),
-            conversation_type=config["conversation_type"],
-            next_question=next_question,
-        )
+                agent_name=config["agent_name"],
+                agent_role=config["agent_role"],
+                company_name=config["company_name"],
+                company_business=config["company_business"],
+                company_values=config["company_values"],
+                conversation_history="\n".join(self.conversation_history),
+                conversation_type=config["conversation_type"],
+                next_question=next_question,
+            )
+        return ai_message.split(':', 1)[-1].strip().rstrip('<END_OF_TURN>')
 
-        # Store the question response
-        self.question_responses[self.current_question_no] = self.conversation_history[-1].split(":")[-1].strip().replace("<END_OF_TURN>", "")
+    def add_conversation_history(self, question: str, user_input: str):
+        self.conversation_history.append(f"{config['agent_name']}: {question}<END_OF_TURN>")
+        self.conversation_history.append(f"User: {user_input}<END_OF_TURN>")
 
-        self.conversation_history.append(f"{config['agent_name']}: {ai_message}")
 
-        print(f"Current Question No {self.current_question_no}: {questions_dic.get(self.current_question_no, '1')}")
-        print("****************************************************************************************************")
-        print(ai_message.split(':', 1)[-1].strip().rstrip('<END_OF_TURN>'))
+    def _call(self, user_input: str) -> str:
+        # check user input is correct or not
+        question = questions_dic.get(self.current_question_no)
+        if question is None:
+            return "Conversation Ended"
+        evaluation_criteria = evaluation_criteria_dic.get(self.current_question_no)
+        is_valid_response = question_verifier.verify_question(question, user_input, evaluation_criteria)
+        if is_valid_response is True:
+            if self.current_question_no == "0":
+                self.add_conversation_history(question, user_input)
+                self.determine_next_question_no()
+                generated_question = self.generateQuestion()
+                self.conversation_history.append(f"{config['agent_name']}: {generated_question}<END_OF_TURN>")
+                return generated_question
+            self.determine_next_question_no()
+            privious_ai_generated_question = self.conversation_history[-1].split(':')[1].strip().rstrip('<END_OF_TURN>')
+            self.add_conversation_history(privious_ai_generated_question, user_input)
+            generated_question = self.generateQuestion()
+            self.conversation_history.append(f"{config['agent_name']}: {generated_question}<END_OF_TURN>")
+            return generated_question
+        else:
+            return is_valid_response
 
     @classmethod
     def from_llm(cls, llm: BaseLLM, verbose: bool = False, **kwargs) -> "SaturnGPT":
@@ -125,26 +153,17 @@ llm = ChatOpenAI(model="gpt-4o", temperature=0.9)
 sales_agent = SaturnGPT.from_llm(llm=llm, verbose=verbose)
 question_verifier = QuestionVerifier()
 
-# Seed the agent with initial conversation history
-sales_agent.seed_agent()
+class ConversationInput(BaseModel):
+    input: str
 
-# Start the interaction loop
-while True:
-    sales_agent.step()
-    user_input = input("User: ")
-    print("\n\n")
-    if user_input.lower() == "exit":
-        sales_agent.print_question_responses()
-        break
-    while True:
-        evaluation_criteria = evaluation_criteria_dic.get(sales_agent.get_current_question_no(), "1")
-        question = questions_dic.get(sales_agent.get_current_question_no(), "1")
-        is_valid_response = question_verifier.verify_question(question, user_input, evaluation_criteria)
-        if is_valid_response is True:
-            sales_agent.conversation_history.append(f"User: {user_input}<END_OF_TURN>")
-            sales_agent.determine_next_question_no()
-            break
-        else:
-            print(is_valid_response)
-            user_input = input("User: ")
-            print("\n\n")
+@app.post("/api/bot/conversations/{user_name}")
+async def start_conversation(user_name, inputDto: ConversationInput):
+    if sales_agent.current_question_no == "0":
+        inputDto.input = user_name
+    result = sales_agent.step(inputDto.input)
+    return {"message": result}
+
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
