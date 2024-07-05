@@ -6,12 +6,12 @@ from pydantic import Field
 from langchain.chains.base import Chain
 from chain.conversation_chain import AgentConversationChain
 from utils.question_verifier import QuestionVerifier
+from repository import get_user_questions_answered, update_user_questions_answered, create_user
 
 question_verifier = QuestionVerifier()
 
 class SaturnBot(Chain):
     conversation_history: List[str] = []
-    current_question_no: str = "0"
     conversation_chain: AgentConversationChain = Field(...)
     correct_responses: Dict[str, Any] = {}
 
@@ -21,9 +21,6 @@ class SaturnBot(Chain):
     def get_question_id(self, question_no: str) -> str:
         return questions_dic.get(question_no).split(":")[0]
 
-    def update_question_number(self):
-        self.current_question_no = str(int(self.current_question_no) + 1)
-
     @property
     def input_keys(self) -> List[str]:
         return []
@@ -32,11 +29,8 @@ class SaturnBot(Chain):
     def output_keys(self) -> List[str]:
         return []
 
-    def step(self, user_input: str) -> str:
-        return self._call(user_input)
-
-    def generate_question(self):
-        next_question = self.get_question(self.current_question_no)
+    def generate_question(self, q_no: str) -> str:
+        next_question = self.get_question(q_no)
         ai_message = self.conversation_chain.run(
             agent_name=config["agent_name"],
             agent_role=config["agent_role"],
@@ -56,28 +50,32 @@ class SaturnBot(Chain):
     def add_question_to_history(self, question: str):
         self.conversation_history.append(f"{config['agent_name']}: {question}<END_OF_TURN>")
 
-    def _call(self, user_input: str) -> str:
+
+    def step(self, email:str, user_input: str) -> str:
+        return self._call(email, user_input)
+
+    def _call(self, email: str, user_input: str) -> str:
+        current_question_no = str(get_user_questions_answered(email))
         # print the conversation history
         print("\n".join(self.conversation_history))
-        question = self.get_question(self.current_question_no)
+        question = self.get_question(current_question_no)
         if not question:
             return "Conversation Ended"
 
-        evaluation_criteria = evaluation_criteria_dic.get(self.current_question_no)
+        evaluation_criteria = evaluation_criteria_dic.get(current_question_no)
         is_valid_response = question_verifier.verify_question(question, user_input, evaluation_criteria)
 
         if is_valid_response is True:
-            self.correct_responses[self.get_question_id(self.current_question_no)] = user_input
-            if self.current_question_no == "0":
-                self.update_question_number()
-                generated_question = self.generate_question()
+            self.correct_responses[self.get_question_id(current_question_no)] = user_input
+            if current_question_no == "0":
+                create_user(email=email, full_name=user_input)
+                generated_question = self.generate_question(str(int(current_question_no) + 1))
                 self.add_question_to_history(question) # Add the system message to the conversation history
                 self.add_to_history(user_input, generated_question) # Add the user input and generated question to the conversation history
                 return generated_question
 
-            self.update_question_number()
-
-            generated_question = self.generate_question()
+            generated_question = self.generate_question(str(int(current_question_no) + 1))
+            update_user_questions_answered(email, 1)
             self.add_to_history(user_input, generated_question) # Add the user input and generated question to the conversation history
             return generated_question
 

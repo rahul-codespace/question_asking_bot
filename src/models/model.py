@@ -3,7 +3,7 @@ from typing import Dict, Any
 
 
 class ConversationInputDto(BaseModel):
-    input: str
+    message: str
 
 class ConversationOutputDto(BaseModel):
     message: str

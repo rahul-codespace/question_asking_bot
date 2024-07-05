@@ -16,8 +16,9 @@ def get_users():
     db.close()
     return users
 
-def create_user(user: User):
+def create_user(email: str, full_name: str):
     db = SessionLocal()
+    user = User(email=email, full_name=full_name, total_questions_answered=1)
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -45,13 +46,15 @@ def get_user_questions_answered(email: str):
     db = SessionLocal()
     user = db.query(User).filter(User.email == email).first()
     db.close()
+    if user is None:
+        return 0
     return user.total_questions_answered
 
 # update total questions answered by user email
-def update_user_questions_answered(email: str, total_questions_answered: int):
+def update_user_questions_answered(email: str, val: int):
     db = SessionLocal()
     user = db.query(User).filter(User.email == email).first()
-    user.total_questions_answered = total_questions_answered
+    user.total_questions_answered = user.total_questions_answered + val
     db.commit()
     db.refresh(user)
     db.close()

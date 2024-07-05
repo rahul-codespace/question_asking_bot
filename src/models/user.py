@@ -9,4 +9,4 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     email = Column(String, unique=True)
     full_name = Column(String)
-    total_questions_answered = Column(Integer)
+    total_questions_answered = Column(Integer) 
