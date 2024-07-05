@@ -13,13 +13,14 @@ question_verifier = QuestionVerifier()
 class SaturnBot(Chain):
     conversation_history: List[str] = []
     conversation_chain: AgentConversationChain = Field(...)
-    correct_responses: Dict[str, Any] = {}
+    correct_responses: Dict[int, Any] = {}
 
-    def get_question(self, question_no: str) -> str:
-        return questions_dic.get(question_no)
+    def get_question(self, question_no: int) -> str:
+        return questions_dic.get(str(question_no), "")
 
-    def get_question_id(self, question_no: str) -> str:
-        return questions_dic.get(question_no).split(":")[0]
+    def get_question_id(self, question_no: int) -> str:
+        question = self.get_question(question_no)
+        return question.split(":")[0] if question else ""
 
     @property
     def input_keys(self) -> List[str]:
@@ -29,7 +30,7 @@ class SaturnBot(Chain):
     def output_keys(self) -> List[str]:
         return []
 
-    def generate_question(self, q_no: str) -> str:
+    def generate_question(self, q_no: int) -> str:
         next_question = self.get_question(q_no)
         ai_message = self.conversation_chain.run(
             agent_name=config["agent_name"],
@@ -44,39 +45,35 @@ class SaturnBot(Chain):
         return ai_message.split(':', 1)[-1].strip().rstrip('<END_OF_TURN>')
 
     def add_to_history(self, user_input: str, question: str):
-        self.conversation_history.append(f"User: {user_input}<END_OF_TURN>")
-        self.conversation_history.append(f"{config['agent_name']}: {question}<END_OF_TURN>")
+        self.conversation_history.extend([
+            f"User: {user_input}<END_OF_TURN>",
+            f"{config['agent_name']}: {question}<END_OF_TURN>"
+        ])
 
     def add_question_to_history(self, question: str):
         self.conversation_history.append(f"{config['agent_name']}: {question}<END_OF_TURN>")
 
-
-    def step(self, email:str, user_input: str) -> str:
+    def step(self, email: str, user_input: str) -> str:
         return self._call(email, user_input)
 
     def _call(self, email: str, user_input: str) -> str:
-        current_question_no = str(get_user_questions_answered(email))
-        # print the conversation history
-        print("\n".join(self.conversation_history))
+        current_question_no = get_user_questions_answered(email)
+        print("\n".join(self.conversation_history))  # Debug: print conversation history
         question = self.get_question(current_question_no)
         if not question:
             return "Conversation Ended"
 
-        evaluation_criteria = evaluation_criteria_dic.get(current_question_no)
+        evaluation_criteria = evaluation_criteria_dic.get(str(current_question_no))
         is_valid_response = question_verifier.verify_question(question, user_input, evaluation_criteria)
 
         if is_valid_response is True:
             self.correct_responses[self.get_question_id(current_question_no)] = user_input
-            if current_question_no == "0":
+            if current_question_no == 0:
                 create_user(email=email, full_name=user_input)
-                generated_question = self.generate_question(str(int(current_question_no) + 1))
-                self.add_question_to_history(question) # Add the system message to the conversation history
-                self.add_to_history(user_input, generated_question) # Add the user input and generated question to the conversation history
-                return generated_question
-
-            generated_question = self.generate_question(str(int(current_question_no) + 1))
+                self.add_question_to_history(question)
+            generated_question = self.generate_question(current_question_no + 1)
             update_user_questions_answered(email, 1)
-            self.add_to_history(user_input, generated_question) # Add the user input and generated question to the conversation history
+            self.add_to_history(user_input, generated_question)
             return generated_question
 
         return is_valid_response

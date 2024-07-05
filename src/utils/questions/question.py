@@ -14,7 +14,6 @@ questions_dic = {
 }
 
 # Define QuestionVerifier dictionary that maps question numbers to evaluation criteria
-
 evaluation_criteria_dic = {
     "0": "No need this will be handled by the system. Just return 'True'",
     "1": "User response should indicate readiness to proceed with answering questions about their company.",

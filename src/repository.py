@@ -18,7 +18,7 @@ def get_users():
 
 def create_user(email: str, full_name: str):
     db = SessionLocal()
-    user = User(email=email, full_name=full_name, total_questions_answered=1)
+    user = User(email=email, full_name=full_name, total_questions_answered=0)
     db.add(user)
     db.commit()
     db.refresh(user)
