@@ -34,16 +34,17 @@ class SaturnBot(Chain):
         next_question = self.get_question(q_no)
         if next_question is '' or next_question is None:
             return "Conversation Ended"
-        ai_message = self.conversation_chain.run(
-            agent_name=config["agent_name"],
-            agent_role=config["agent_role"],
-            company_name=config["company_name"],
-            company_business=config["company_business"],
-            company_values=config["company_values"],
-            conversation_history="\n".join(self.conversation_history),
-            conversation_type=config["conversation_type"],
-            next_question=next_question,
-        )
+        inputs = {
+            "agent_name": config["agent_name"],
+            "agent_role": config["agent_role"],
+            "company_name": config["company_name"],
+            "company_business": config["company_business"],
+            "company_values": config["company_values"],
+            "conversation_history": "\n".join(self.conversation_history),
+            "conversation_type": config["conversation_type"],
+            "next_question": next_question,
+        }
+        ai_message = self.conversation_chain.invoke(inputs)
         return ai_message.split(':', 1)[-1].strip().rstrip('<END_OF_TURN>')
 
     def add_to_history(self, user_input: str, question: str):
