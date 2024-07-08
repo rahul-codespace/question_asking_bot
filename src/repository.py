@@ -1,5 +1,5 @@
 from context.db import SessionLocal
-from models.user import User
+from models.user import User, QuestionAnswer
 from sqlalchemy.orm import Session
 
 
@@ -60,3 +60,17 @@ def update_user_questions_answered(email: str, val: int):
     db.close()
     return user.total_questions_answered
 
+
+# add answer to a question
+
+def add_answer(email: str, question_id: str, question_var: str, answer: str):
+    db = SessionLocal()
+    user = db.query(User).filter(User.email == email).first()
+    if user is None:
+        return None
+    question_answer = QuestionAnswer(user_id=user.id, question_id=question_id, question_var=question_var, answer=answer)
+    db.add(question_answer)
+    db.commit()
+    db.refresh(question_answer)
+    db.close()
+    return question_answer

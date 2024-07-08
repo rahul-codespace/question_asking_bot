@@ -16,13 +16,13 @@ class AgentConversationChain(LLMChain):
         The purpose of this conversation is to collect information about the client's company.
         The conversation type is {conversation_type}.
 
-        Keep your responses short to retain the user's attention. Never produce lists of questions. Always ask one question at a time.
+        Keep your responses short to retain the user's attention. Never produce lists of questions. Always ask one question at a time from agent side.
         You must respond according to the previous conversation history. Only ask one question at a time! When you are done with generating the question, please add <END_OF_TURN> at the end of the question to give the user a chance to respond.
 
         Example:
         Conversation History:
-        Hello there! This is {agent_name} from {company_name}. Before we get started, could you please tell me your full name?
-        User: Sure! My name is John Doe. <END_OF_TURN>
+        Hello there! This is {agent_name} from {company_name}. Before we get started, could you please tell me your full name?<END_OF_TURN>
+        User: Sure! My name is John Doe.<END_OF_TURN>
         End of Example.
 
         Current Conversation:

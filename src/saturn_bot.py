@@ -6,7 +6,7 @@ from pydantic import Field
 from langchain.chains.base import Chain
 from chain.conversation_chain import AgentConversationChain
 from utils.question_verifier import QuestionVerifier
-from repository import get_user_questions_answered, update_user_questions_answered, create_user
+from repository import add_answer, get_user_questions_answered, update_user_questions_answered, create_user
 
 question_verifier = QuestionVerifier()
 
@@ -16,7 +16,7 @@ class SaturnBot(Chain):
     correct_responses: Dict[int, Any] = {}
 
     def get_question(self, question_no: int) -> str:
-        return questions_dic.get(str(question_no), "")
+        return questions_dic.get(str(question_no))
 
     def get_question_id(self, question_no: int) -> str:
         question = self.get_question(question_no)
@@ -32,6 +32,8 @@ class SaturnBot(Chain):
 
     def generate_question(self, q_no: int) -> str:
         next_question = self.get_question(q_no)
+        if next_question is '' or next_question is None:
+            return "Conversation Ended"
         ai_message = self.conversation_chain.run(
             agent_name=config["agent_name"],
             agent_role=config["agent_role"],
@@ -67,9 +69,11 @@ class SaturnBot(Chain):
         is_valid_response = question_verifier.verify_question(question, user_input, evaluation_criteria)
 
         if is_valid_response is True:
+            add_answer(email, current_question_no, self.get_question_id(current_question_no), user_input)
             self.correct_responses[self.get_question_id(current_question_no)] = user_input
             if current_question_no == 0:
                 create_user(email=email, full_name=user_input)
+                add_answer(email, current_question_no, self.get_question_id(current_question_no), user_input)
                 self.add_question_to_history(question)
             generated_question = self.generate_question(current_question_no + 1)
             update_user_questions_answered(email, 1)

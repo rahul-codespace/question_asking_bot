@@ -10,7 +10,7 @@ app = FastAPI()
 load_dotenv()
 
 verbose = False
-llm = ChatOpenAI(model="gpt-4", temperature=0.9)
+llm = ChatOpenAI(model="gpt-4o", temperature=0.9)
 saturn_bot = SaturnBot.from_llm(llm=llm, verbose=verbose)
 
 
