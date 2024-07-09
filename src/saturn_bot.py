@@ -32,26 +32,23 @@ class SaturnBot(Chain):
 
     def generate_question(self, q_no: int) -> str:
         next_question = self.get_question(q_no)
-        if next_question is '' or next_question is None:
+        if next_question == '' or next_question == None:
             return "Conversation Ended"
-        inputs = {
-            "agent_name": config["agent_name"],
-            "agent_role": config["agent_role"],
-            "company_name": config["company_name"],
-            "company_business": config["company_business"],
-            "company_values": config["company_values"],
-            "conversation_history": "\n".join(self.conversation_history),
-            "conversation_type": config["conversation_type"],
-            "next_question": next_question,
-        }
-        ai_message = self.conversation_chain.invoke(inputs)
-        return ai_message.split(':', 1)[-1].strip().rstrip('<END_OF_TURN>')
+        ai_message = self.conversation_chain.run(
+            agent_name=config["agent_name"],
+            agent_role=config["agent_role"],
+            company_name=config["company_name"],
+            company_business=config["company_business"],
+            company_values=config["company_values"],
+            conversation_history="\n".join(self.conversation_history),
+            conversation_type=config["conversation_type"],
+            next_question=next_question,
+        )
+        message = f'{config["agent_name"]}: {ai_message.split(":")[-1].rstrip("<END_OF_TURN>").strip()}'
+        return message
 
-    def add_to_history(self, user_input: str, question: str):
-        self.conversation_history.extend([
-            f"User: {user_input}<END_OF_TURN>",
-            f"{config['agent_name']}: {question}<END_OF_TURN>"
-        ])
+    def add_ans_to_history(self, user_input: str):
+        self.conversation_history.append(f"User: {user_input}<END_OF_TURN>")
 
     def add_question_to_history(self, question: str):
         self.conversation_history.append(f"{config['agent_name']}: {question}<END_OF_TURN>")
@@ -76,9 +73,10 @@ class SaturnBot(Chain):
                 create_user(email=email, full_name=user_input)
                 add_answer(email, current_question_no, self.get_question_id(current_question_no), user_input)
                 self.add_question_to_history(question)
+            self.add_ans_to_history(user_input)
             generated_question = self.generate_question(current_question_no + 1)
             update_user_questions_answered(email, 1)
-            self.add_to_history(user_input, generated_question)
+            self.add_question_to_history(generated_question)
             return generated_question
 
         return is_valid_response
