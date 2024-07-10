@@ -44,7 +44,7 @@ class SaturnBot(Chain):
             conversation_type=config["conversation_type"],
             next_question=next_question,
         )
-        message = f'{config["agent_name"]}: {ai_message.split(":")[-1].rstrip("<END_OF_TURN>").strip()}'
+        message = ai_message.split(":")[-1].rstrip("<END_OF_TURN>").strip()
         return message
 
     def add_ans_to_history(self, user_input: str):
